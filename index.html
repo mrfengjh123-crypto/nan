@@ -7,257 +7,170 @@
     <style>
         body, html { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; background-color: #000; font-family: "Microsoft YaHei", sans-serif; }
         
-        /* 初始遮罩 */
+        /* 交互遮罩 */
         #start-overlay {
             position: fixed; top: 0; left: 0; width: 100%; height: 100%;
             background: #000; z-index: 2000; display: flex; align-items: center; justify-content: center; cursor: pointer;
         }
-        #start-text { color: #ff69b4; font-size: 18px; letter-spacing: 4px; animation: breathe 2s infinite; }
+        #start-text { color: #ffb6c1; font-size: 16px; letter-spacing: 4px; animation: breathe 2s infinite; }
         
-        /* 照片墙 */
+        /* 动态照片墙 */
         #photo-wall { position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 1; opacity: 0; transition: opacity 2s; }
         .bg-photo {
-            position: absolute; width: 140px; height: 190px;
+            position: absolute; width: 120px; height: 160px;
             background-size: cover; background-position: center;
-            border: 2px solid rgba(255,255,255,0.3); border-radius: 8px;
-            opacity: 0; filter: brightness(0.6);
-            animation: photoFlow 15s infinite ease-in-out;
+            border: 1px solid rgba(255,255,255,0.15); border-radius: 4px;
+            opacity: 0; filter: brightness(0.4); /* 降低亮度 */
+            animation: photoFlow 14s infinite ease-in-out;
         }
 
-        /* 开场白文字 */
+        /* 初始文字 */
         #intro-text {
             position: absolute; left: 10%; top: 45%; color: white;
-            z-index: 100; pointer-events: none; opacity: 0;
-            text-shadow: 0 0 15px #ff1493; transition: opacity 2s;
+            z-index: 100; pointer-events: none; opacity: 0; transition: opacity 2s;
+            text-shadow: 0 0 15px #ff1493;
         }
-        .line1 { font-size: 32px; font-weight: bold; margin-bottom: 10px; }
-        .line2 { font-size: 18px; opacity: 0.9; }
+        .line1 { font-size: 32px; font-weight: bold; margin-bottom: 8px; }
+        .line2 { font-size: 16px; opacity: 0.8; }
 
-        /* 祝愿词容器 */
+        /* 祝愿语容器 */
         #wishes-container {
-            position: absolute; left: 10%; top: 20%; width: 80%; height: 60%;
-            z-index: 150; pointer-events: none;
+            position: absolute; left: 5%; top: 10%; width: 90%; height: 80%;
+            z-index: 150; pointer-events: none; transition: opacity 2s;
         }
         .wish-item {
-            position: absolute; color: #ffb6c1; font-size: 20px;
-            opacity: 0; transition: all 1.5s;
-            text-shadow: 0 0 10px rgba(255,20,147,0.5);
-            white-space: nowrap;
+            position: absolute; color: #fff; font-size: 19px;
+            opacity: 0; transition: all 2s ease-out;
+            text-shadow: 0 0 8px #ff69b4;
+            white-space: nowrap; font-weight: 300;
         }
 
-        /* 结尾大字 */
-        #final-title {
-            position: absolute; width: 100%; top: 40%; text-align: center;
-            color: #fff; font-size: 60px; font-weight: bold; opacity: 0;
-            z-index: 500; text-shadow: 0 0 30px #ff0000, 0 0 10px #fff;
-            transition: opacity 3s; pointer-events: none;
+        /* 结局文字样式 */
+        .final-message {
+            position: absolute; width: 100%; top: 45%; text-align: center;
+            color: #fff; font-weight: bold; opacity: 0;
+            z-index: 500; transition: opacity 2s; pointer-events: none;
         }
+        #phrase-1 { font-size: 28px; letter-spacing: 3px; text-shadow: 0 0 15px #ffb6c1; }
+        #phrase-2 { font-size: 48px; letter-spacing: 5px; text-shadow: 0 0 25px #ff1493; }
 
-        @keyframes breathe { 0%, 100% { opacity: 0.4; transform: scale(0.95); } 50% { opacity: 1; transform: scale(1.05); } }
+        @keyframes breathe { 0%, 100% { opacity: 0.4; transform: scale(0.98); } 50% { opacity: 1; transform: scale(1.02); } }
         @keyframes photoFlow {
-            0%, 100% { opacity: 0; transform: translate(0, 15px) rotate(-2deg); }
-            20%, 80% { opacity: 0.7; transform: translate(0, 0) rotate(0deg); }
+            0%, 100% { opacity: 0; transform: translateY(20px) rotate(-1deg); }
+            30%, 70% { opacity: 0.4; transform: translateY(0) rotate(0deg); } /* 这里降低了透明度到0.4 */
         }
-
-        canvas { position: absolute; top: 0; left: 0; z-index: 200; pointer-events: none; }
+        .pulse { animation: breathe 3s infinite; }
     </style>
 </head>
 <body>
 
     <div id="start-overlay"><div id="start-text">✨ 点击开启 2026 的惊喜 ✨</div></div>
-
+    
     <div id="photo-wall"></div>
-
+    
     <div id="intro-text">
         <div class="line1">2026快乐！</div>
         <div class="line2">希望我的楠楠天天快乐！</div>
     </div>
-
+    
     <div id="wishes-container"></div>
-    <div id="final-title">2026 快乐！</div>
-
-    <canvas id="fw-canvas"></canvas>
+    
+    <div id="phrase-1" class="final-message">年年景不改，岁岁人常在！</div>
+    <div id="phrase-2" class="final-message pulse">我爱你楠楠！</div>
     
     <audio id="bgm" loop><source src="music.mp3" type="audio/mpeg"></audio>
 
     <script>
-        // 祝愿词库 - 你可以修改这里
+        // 祝愿列表
         const wishList = [
-            "我们要一直好好的 ❤️",
-            "带你去吃全世界的好吃的 🍦",
-            "陪你去看每一场日落 🌅",
-            "楠楠是世界上最可爱的女孩 👧",
-            "2026 也要事事顺心呀 ✨",
-            "我会永远在你身边 🫂",
-            "想把所有的温柔都给你 🌸",
-            "愿你的梦里都是甜甜的 🌙"
+            "我们要一直坚持下去 💪",
+            "一起努力一起开心！",
+            "楠楠永远是全世界最好看最可爱的女生！",
+            "2026 也要事事顺心 ！",
+            "我会永远陪着宝宝滴 ！",
+            "遇到困难咱俩一起面对！",
+            "我会永远陪着宝宝滴 ！"
         ];
 
-        const photos = ['photo1.jpg','photo2.jpg','photo3.jpg','photo4.jpg','photo5.jpg','photo6.jpg','photo7.jpg','photo8.jpg'];
+        // 1. 初始化照片墙 - 增加到 15 张
         const wall = document.getElementById('photo-wall');
-        const bgm = document.getElementById('bgm');
-
-        // 初始化照片墙
-        photos.forEach((src, i) => {
+        for(let i=1; i<=15; i++) {
             const d = document.createElement('div');
             d.className = 'bg-photo';
-            d.style.backgroundImage = `url(${src})`;
-            d.style.left = (Math.random() * 65 + 5) + '%';
-            d.style.top = (Math.random() * 65 + 5) + '%';
-            d.style.animationDelay = (i * 2) + 's';
+            // 如果你只有8张图，这里用取余逻辑循环使用图源，或者你有photo1-15.jpg
+            const imgSrc = (i > 8) ? (i % 8 + 1) : i; 
+            d.style.backgroundImage = `url('photo${imgSrc}.jpg')`;
+            d.style.left = (Math.random() * 70 + 5) + '%';
+            d.style.top = (Math.random() * 70 + 5) + '%';
+            d.style.animationDelay = (i * 1.2) + 's';
             wall.appendChild(d);
-        });
+        }
 
-        // 核心流程控制
+        // 2. 交互控制
         document.getElementById('start-overlay').addEventListener('click', function() {
             this.style.opacity = '0';
             setTimeout(() => this.style.display = 'none', 1000);
-            
-            // 1. 播放音乐并显示照片和开场白
-            bgm.play();
+            document.getElementById('bgm').play();
             wall.style.opacity = '1';
             const intro = document.getElementById('intro-text');
             intro.style.opacity = '1';
 
-            // 2. 5秒后开场白消失，开始浮现祝愿语
+            // 5秒后开场白消失
             setTimeout(() => {
                 intro.style.opacity = '0';
-                startWishes();
+                showWishes();
             }, 5000);
         });
 
-        function startWishes() {
+        // 3. 祝愿展示
+        function showWishes() {
             const container = document.getElementById('wishes-container');
             wishList.forEach((text, i) => {
                 setTimeout(() => {
                     const item = document.createElement('div');
                     item.className = 'wish-item';
                     item.innerText = text;
-                    item.style.top = (Math.random() * 80) + '%';
-                    item.style.left = (Math.random() * 20) + '%';
+                    item.style.top = (15 + i * 9) + '%'; 
+                    item.style.left = (12 + Math.random() * 10) + '%';
                     container.appendChild(item);
                     
-                    // 浮现
                     setTimeout(() => {
                         item.style.opacity = '1';
-                        item.style.transform = 'translateY(-20px)';
+                        item.style.transform = 'translateX(20px)';
                     }, 100);
 
-                    // 如果是最后一条，处理收尾
+                    // 播完所有祝愿语后的流程
                     if(i === wishList.length - 1) {
-                        setTimeout(cleanupAndFireworks, 4000);
+                        setTimeout(startEndingSequence, 6000);
                     }
-                }, i * 2000); // 每隔2秒出现一条
+                }, i * 2000);
             });
         }
 
-        function cleanupAndFireworks() {
-            // 所有东西消失
+        // 4. 结尾序列逻辑
+        function startEndingSequence() {
+            // 祝愿词消失
             document.getElementById('wishes-container').style.opacity = '0';
-            wall.style.opacity = '0';
             
-            // 开启烟花
             setTimeout(() => {
-                document.getElementById('final-title').style.opacity = '1';
-                startFireworks();
+                // 显示“年年景不改，岁岁人常在！”
+                const p1 = document.getElementById('phrase-1');
+                p1.style.opacity = '1';
+                
+                // 停留 4秒
+                setTimeout(() => {
+                    p1.style.opacity = '0';
+                    
+                    // 最后大字淡入
+                    setTimeout(() => {
+                        const p2 = document.getElementById('phrase-2');
+                        p2.style.opacity = '1';
+                    }, 2000);
+                    
+                }, 4000);
+                
             }, 2000);
         }
-
-        // --- 烟花引擎代码 ---
-        const canvas = document.getElementById('fw-canvas');
-        const ctx = canvas.getContext('2d');
-        let fwActive = false;
-
-        function startFireworks() {
-            fwActive = true;
-            resize();
-            animateFireworks();
-        }
-
-        function resize() {
-            canvas.width = window.innerWidth;
-            canvas.height = window.innerHeight;
-        }
-
-        class Particle {
-            constructor(x, y, color) {
-                this.x = x; this.y = y; this.color = color;
-                this.velocity = { x: (Math.random() - 0.5) * 8, y: (Math.random() - 0.5) * 8 };
-                this.alpha = 1;
-                this.friction = 0.95;
-                this.gravity = 0.2;
-            }
-            draw() {
-                ctx.globalAlpha = this.alpha;
-                ctx.beginPath();
-                ctx.arc(this.x, this.y, 2, 0, Math.PI * 2);
-                ctx.fillStyle = this.color;
-                ctx.fill();
-            }
-            update() {
-                this.velocity.x *= this.friction;
-                this.velocity.y *= this.friction;
-                this.velocity.y += this.gravity;
-                this.x += this.velocity.x;
-                this.y += this.velocity.y;
-                this.alpha -= 0.01;
-            }
-        }
-
-        class Firework {
-            constructor() {
-                this.x = Math.random() * canvas.width;
-                this.y = canvas.height;
-                this.color = `hsl(${Math.random() * 360}, 100%, 50%)`;
-                this.velocity = { x: (Math.random() - 0.5) * 3, y: -Math.random() * 15 - 10 };
-                this.particles = [];
-                this.dead = false;
-            }
-            update() {
-                this.x += this.velocity.x;
-                this.y += this.velocity.y;
-                this.velocity.y += 0.1; // 重力
-                if (this.velocity.y >= 0) {
-                    for (let i = 0; i < 100; i++) this.particles.push(new Particle(this.x, this.y, this.color));
-                    this.velocity = {x:0, y:0};
-                }
-                if (this.particles.length > 0) {
-                    this.particles.forEach((p, i) => {
-                        p.update();
-                        if (p.alpha <= 0) this.particles.splice(i, 1);
-                    });
-                    if (this.particles.length === 0) this.dead = true;
-                }
-            }
-            draw() {
-                if (this.particles.length === 0) {
-                    ctx.beginPath();
-                    ctx.arc(this.x, this.y, 3, 0, Math.PI * 2);
-                    ctx.fillStyle = this.color;
-                    ctx.fill();
-                } else {
-                    this.particles.forEach(p => p.draw());
-                }
-            }
-        }
-
-        let fireworks = [];
-        function animateFireworks() {
-            if(!fwActive) return;
-            ctx.fillStyle = 'rgba(0, 0, 0, 0.15)';
-            ctx.fillRect(0, 0, canvas.width, canvas.height);
-            
-            if (Math.random() < 0.05) fireworks.push(new Firework());
-            
-            fireworks.forEach((fw, i) => {
-                fw.update();
-                fw.draw();
-                if (fw.dead) fireworks.splice(i, 1);
-            });
-            requestAnimationFrame(animateFireworks);
-        }
-
-        window.addEventListener('resize', resize);
     </script>
 </body>
 </html>
