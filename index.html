@@ -3,42 +3,38 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>2026 快乐</title>
+    <title>2026快乐</title>
     <style>
-        body, html { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; background-color: #050505; }
+        body, html { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; background-color: #000; }
         
-        /* 动态背景照片墙 */
+        /* 背景照片墙：极度柔化 */
         #photo-wall { position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 1; }
         .bg-photo {
-            position: absolute; width: 140px; height: 190px;
+            position: absolute; width: 120px; height: 160px;
             background-size: cover; background-position: center;
-            border: 2px solid rgba(255,255,255,0.1); border-radius: 5px;
-            opacity: 0; filter: brightness(0.4);
-            animation: photoFlow 12s infinite ease-in-out;
+            border-radius: 2px; opacity: 0; 
+            filter: brightness(0.4) blur(0.5px); /* 增加微弱模糊，更有电影感 */
+            animation: photoFade 15s infinite ease-in-out;
         }
 
-        /* 文字样式优化 */
+        /* 文字排版：精致粉白 */
         #text-container {
-            position: absolute; left: 30px; top: 45%; color: white;
+            position: absolute; left: 10%; top: 45%; color: white;
             z-index: 100; pointer-events: none;
-            text-shadow: 0 0 15px rgba(255,105,180,0.8);
+            text-shadow: 0 0 12px rgba(255,182,193,0.6);
         }
-        .line1 { font-size: 26px; font-weight: bold; margin-bottom: 5px; }
-        .line2 { font-size: 14px; opacity: 0.8; letter-spacing: 1px; }
+        .line1 { font-size: 22px; font-weight: 500; margin-bottom: 8px; letter-spacing: 2px; }
+        .line2 { font-size: 13px; opacity: 0.7; letter-spacing: 1px; font-weight: 300; }
 
-        @keyframes photoFlow {
-            0% { opacity: 0; transform: scale(0.9) translateY(10px); }
-            15% { opacity: 0.6; }
-            85% { opacity: 0.6; }
-            100% { opacity: 0; transform: scale(1.05) translateY(-10px); }
+        @keyframes photoFade {
+            0%, 100% { opacity: 0; transform: scale(0.95); }
+            20%, 80% { opacity: 0.5; transform: scale(1); }
         }
 
-        canvas { position: absolute; top: 0; left: 0; z-index: 10; }
-        #loading { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); color: pink; z-index: 1000; font-size: 14px; }
+        canvas { position: absolute; top: 0; left: 0; z-index: 10; pointer-events: none; }
     </style>
 </head>
 <body>
-    <div id="loading">资源加载中...</div>
     <div id="photo-wall"></div>
     <div id="text-container">
         <div class="line1">2026快乐！</div>
@@ -48,97 +44,106 @@
 
     <script src="https://cdn.staticfile.org/three.js/r128/three.min.js"></script>
     <script>
-        const photoWall = document.getElementById('photo-wall');
+        // 照片墙逻辑
         const photos = ['photo1.jpg','photo2.jpg','photo3.jpg','photo4.jpg','photo5.jpg','photo6.jpg','photo7.jpg','photo8.jpg'];
-        
-        // 生成照片位置
+        const wall = document.getElementById('photo-wall');
         photos.forEach((src, i) => {
-            const div = document.createElement('div');
-            div.className = 'bg-photo';
-            div.style.backgroundImage = `url(${src})`;
-            div.style.left = (Math.random() * 60 + (i % 2 * 30)) + '%';
-            div.style.top = (Math.random() * 70) + '%';
-            div.style.animationDelay = (i * 1.5) + 's';
-            photoWall.appendChild(div);
+            const d = document.createElement('div');
+            d.className = 'bg-photo';
+            d.style.backgroundImage = `url(${src})`;
+            d.style.left = Math.random() * 70 + '%';
+            d.style.top = Math.random() * 80 + '%';
+            d.style.animationDelay = i * 2 + 's';
+            wall.appendChild(d);
         });
 
-        let scene, camera, renderer, spiral, heart;
+        let scene, camera, renderer, starGroup;
 
         function init() {
             scene = new THREE.Scene();
-            camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
-            camera.position.set(0, 1, 8);
+            camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
+            camera.position.set(0, 1, 10);
 
             renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
             renderer.setSize(window.innerWidth, window.innerHeight);
             renderer.setPixelRatio(window.devicePixelRatio);
             document.body.appendChild(renderer.domElement);
 
-            // 1. 螺旋树干：增加随机散落感
-            const spiralGeo = new THREE.BufferGeometry();
-            const spiralPoints = 15000;
-            const spiralPos = new Float32Array(spiralPoints * 3);
-            const spiralColors = new Float32Array(spiralPoints * 3);
+            starGroup = new THREE.Group();
+            scene.add(starGroup);
 
-            for(let i=0; i<spiralPoints; i++) {
-                const t = i / spiralPoints;
-                const angle = t * Math.PI * 25;
-                const radius = (1.1 - t) * 3;
+            // 1. 生成微型螺旋尘埃 (30000个点)
+            const count = 30000;
+            const geo = new THREE.BufferGeometry();
+            const pos = new Float32Array(count * 3);
+            const sizes = new Float32Array(count);
+
+            for(let i=0; i<count; i++) {
+                const t = i / count;
+                const angle = t * Math.PI * 28;
+                const radius = (1.1 - t) * 3.5;
                 
-                // 关键点：添加 Noise 随机偏移，让它零散而不死板
-                const noise = (Math.random() - 0.5) * 0.4; 
-                spiralPos[i*3] = Math.cos(angle) * radius + noise;
-                spiralPos[i*3+1] = t * 8 - 4;
-                spiralPos[i*3+2] = Math.sin(angle) * radius + (Math.random()-0.5)*0.4;
-
-                spiralColors[i*3] = 1; 
-                spiralColors[i*3+1] = 0.6 + t*0.3; 
-                spiralColors[i*3+2] = 0.8;
+                // 极大的散落感噪声
+                const shift = (Math.random() - 0.5) * 0.6;
+                pos[i*3] = Math.cos(angle) * radius + shift;
+                pos[i*3+1] = t * 9 - 4.5;
+                pos[i*3+2] = Math.sin(angle) * radius + (Math.random()-0.5)*0.6;
+                
+                sizes[i] = Math.random() * 0.04; // 极其细小的点
             }
-            spiralGeo.setAttribute('position', new THREE.BufferAttribute(spiralPos, 3));
-            spiralGeo.setAttribute('color', new THREE.BufferAttribute(spiralColors, 3));
+            geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
 
-            // 2. 独立爱心：增加厚度
-            const heartGeo = new THREE.BufferGeometry();
-            const heartPoints = 2500;
-            const heartPos = new Float32Array(heartPoints * 3);
-            for(let i=0; i<heartPoints; i++) {
-                const step = (i / heartPoints) * Math.PI * 2;
-                const x = 16 * Math.pow(Math.sin(step), 3);
-                const y = 13 * Math.cos(step) - 5 * Math.cos(2*step) - 2 * Math.cos(3*step) - Math.cos(4*step);
-                const scale = 0.04;
-                heartPos[i*3] = x * scale + (Math.random()-0.5)*0.2;
-                heartPos[i*3+1] = y * scale + 4.2; // 置于树尖上方
-                heartPos[i*3+2] = (Math.random()-0.5)*0.5;
-            }
-            heartGeo.setAttribute('position', new THREE.BufferAttribute(heartPos, 3));
-
-            const material = new THREE.PointsMaterial({
-                size: 0.12, vertexColors: true, transparent: true, opacity: 0.7,
-                blending: THREE.AdditiveBlending, sizeAttenuation: true
+            const mat = new THREE.PointsMaterial({
+                color: 0xffb6c1, 
+                size: 0.035, // 粒子大小极小化
+                transparent: true,
+                opacity: 0.4, // 半透明增加朦胧感
+                blending: THREE.AdditiveBlending,
+                depthWrite: false
             });
 
-            spiral = new THREE.Points(spiralGeo, material);
-            heart = new THREE.Points(heartGeo, new THREE.PointsMaterial({size: 0.1, color: 0xffb6c1, blending: THREE.AdditiveBlending}));
-            
-            scene.add(spiral);
-            scene.add(heart);
+            const points = new THREE.Points(geo, mat);
+            starGroup.add(points);
 
-            document.getElementById('loading').style.display = 'none';
+            // 2. 顶部微型星光爱心
+            const hGeo = new THREE.BufferGeometry();
+            const hCount = 3000;
+            const hPos = new Float32Array(hCount * 3);
+            for(let i=0; i<hCount; i++) {
+                const s = (i / hCount) * Math.PI * 2;
+                const x = 16 * Math.pow(Math.sin(s), 3);
+                const y = 13 * Math.cos(s) - 5 * Math.cos(2*s) - 2 * Math.cos(3*s) - Math.cos(4*s);
+                const sc = 0.045;
+                hPos[i*3] = x * sc + (Math.random()-0.5)*0.2;
+                hPos[i*3+1] = y * sc + 4.6; 
+                hPos[i*3+2] = (Math.random()-0.5)*0.3;
+            }
+            hGeo.setAttribute('position', new THREE.BufferAttribute(hPos, 3));
+            const hPoints = new THREE.Points(hGeo, new THREE.PointsMaterial({
+                color: 0xffc0cb, size: 0.03, transparent: true, opacity: 0.8, blending: THREE.AdditiveBlending
+            }));
+            starGroup.add(hPoints);
+
             animate();
         }
 
         function animate() {
             requestAnimationFrame(animate);
-            spiral.rotation.y += 0.005;
-            heart.rotation.y += 0.01;
-            // 爱心微弱缩放动画，增加灵动感
-            const s = 1 + Math.sin(Date.now() * 0.003) * 0.05;
-            heart.scale.set(s, s, s);
+            // 缓慢旋转
+            starGroup.rotation.y += 0.003;
+            // 模拟“星星眨眼”的动态呼吸
+            starGroup.children.forEach(p => {
+                p.material.opacity = 0.3 + Math.abs(Math.sin(Date.now() * 0.001)) * 0.3;
+            });
             renderer.render(scene, camera);
         }
 
         window.addEventListener('touchstart', () => { document.getElementById('bgm').play(); }, {once: true});
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
         init();
     </script>
 </body>
