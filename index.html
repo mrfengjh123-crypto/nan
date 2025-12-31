@@ -1,150 +1,190 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>2026快乐</title>
-    <style>
-        body, html { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; background-color: #000; }
-        
-        /* 背景照片墙：极度柔化 */
-        #photo-wall { position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 1; }
-        .bg-photo {
-            position: absolute; width: 120px; height: 160px;
-            background-size: cover; background-position: center;
-            border-radius: 2px; opacity: 0; 
-            filter: brightness(0.4) blur(0.5px); /* 增加微弱模糊，更有电影感 */
-            animation: photoFade 15s infinite ease-in-out;
-        }
-
-        /* 文字排版：精致粉白 */
-        #text-container {
-            position: absolute; left: 10%; top: 45%; color: white;
-            z-index: 100; pointer-events: none;
-            text-shadow: 0 0 12px rgba(255,182,193,0.6);
-        }
-        .line1 { font-size: 22px; font-weight: 500; margin-bottom: 8px; letter-spacing: 2px; }
-        .line2 { font-size: 13px; opacity: 0.7; letter-spacing: 1px; font-weight: 300; }
-
-        @keyframes photoFade {
-            0%, 100% { opacity: 0; transform: scale(0.95); }
-            20%, 80% { opacity: 0.5; transform: scale(1); }
-        }
-
-        canvas { position: absolute; top: 0; left: 0; z-index: 10; pointer-events: none; }
-    </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>2026 快乐</title>
+<style>
+html,body{
+    margin:0;
+    padding:0;
+    width:100%;
+    height:100%;
+    overflow:hidden;
+    background:#000;
+    font-family:-apple-system,BlinkMacSystemFont;
+}
+canvas{
+    position:fixed;
+    inset:0;
+    z-index:10;
+}
+#start-overlay{
+    position:fixed;
+    inset:0;
+    background:#000;
+    z-index:2000;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    color:#ff69b4;
+    letter-spacing:4px;
+    font-size:18px;
+    cursor:pointer;
+}
+</style>
 </head>
 <body>
-    <div id="photo-wall"></div>
-    <div id="text-container">
-        <div class="line1">2026快乐！</div>
-        <div class="line2">希望我的楠楠天天快乐！</div>
-    </div>
-    <audio id="bgm" loop><source src="music.mp3" type="audio/mpeg"></audio>
 
-    <script src="https://cdn.staticfile.org/three.js/r128/three.min.js"></script>
-    <script>
-        // 照片墙逻辑
-        const photos = ['photo1.jpg','photo2.jpg','photo3.jpg','photo4.jpg','photo5.jpg','photo6.jpg','photo7.jpg','photo8.jpg'];
-        const wall = document.getElementById('photo-wall');
-        photos.forEach((src, i) => {
-            const d = document.createElement('div');
-            d.className = 'bg-photo';
-            d.style.backgroundImage = `url(${src})`;
-            d.style.left = Math.random() * 70 + '%';
-            d.style.top = Math.random() * 80 + '%';
-            d.style.animationDelay = i * 2 + 's';
-            wall.appendChild(d);
-        });
+<div id="start-overlay">✨ 点击开启 2026 的惊喜 ✨</div>
+<audio id="bgm" loop><source src="music.mp3" type="audio/mpeg"></audio>
 
-        let scene, camera, renderer, starGroup;
+<script src="https://cdn.staticfile.org/three.js/r128/three.min.js"></script>
+<script>
+/* ================= 基础配置（手机适配） ================= */
+const isMobile = /Mobi|Android/i.test(navigator.userAgent);
+const TREE_POINTS = isMobile ? 26000 : 50000;
+const HEART_POINTS = isMobile ? 3000 : 6000;
+const TREE_HEIGHT = 12.0;
+const LOOPS = 9;
 
-        function init() {
-            scene = new THREE.Scene();
-            camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
-            camera.position.set(0, 1, 10);
+/* ================= Three.js 初始化 ================= */
+let scene = new THREE.Scene();
+let camera = new THREE.PerspectiveCamera(
+    65,
+    window.innerWidth / window.innerHeight,
+    0.1,
+    1000
+);
+camera.position.set(0, 2.2, 13);
 
-            renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
-            renderer.setSize(window.innerWidth, window.innerHeight);
-            renderer.setPixelRatio(window.devicePixelRatio);
-            document.body.appendChild(renderer.domElement);
+let renderer = new THREE.WebGLRenderer({ antialias:true, alpha:true });
+renderer.setSize(window.innerWidth, window.innerHeight);
+renderer.setPixelRatio(Math.min(window.devicePixelRatio,2));
+document.body.appendChild(renderer.domElement);
 
-            starGroup = new THREE.Group();
-            scene.add(starGroup);
+let group = new THREE.Group();
+scene.add(group);
 
-            // 1. 生成微型螺旋尘埃 (30000个点)
-            const count = 30000;
-            const geo = new THREE.BufferGeometry();
-            const pos = new Float32Array(count * 3);
-            const sizes = new Float32Array(count);
+/* ================= tree.py → 圣诞树点云 ================= */
+function genTree(){
+    const pos = new Float32Array(TREE_POINTS * 3);
+    const col = new Float32Array(TREE_POINTS * 3);
 
-            for(let i=0; i<count; i++) {
-                const t = i / count;
-                const angle = t * Math.PI * 28;
-                const radius = (1.1 - t) * 3.5;
-                
-                // 极大的散落感噪声
-                const shift = (Math.random() - 0.5) * 0.6;
-                pos[i*3] = Math.cos(angle) * radius + shift;
-                pos[i*3+1] = t * 9 - 4.5;
-                pos[i*3+2] = Math.sin(angle) * radius + (Math.random()-0.5)*0.6;
-                
-                sizes[i] = Math.random() * 0.04; // 极其细小的点
-            }
-            geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+    let i = 0;
+    for(let n=0;n<TREE_POINTS;n++){
+        const u = Math.random();
+        const h = Math.pow(u, 1.6);
+        const y = TREE_HEIGHT * h;
 
-            const mat = new THREE.PointsMaterial({
-                color: 0xffb6c1, 
-                size: 0.035, // 粒子大小极小化
-                transparent: true,
-                opacity: 0.4, // 半透明增加朦胧感
-                blending: THREE.AdditiveBlending,
-                depthWrite: false
-            });
+        let baseR = Math.pow(1-h,1.1) * 3.2;
+        const wave = Math.max(0, Math.sin((h*5.8+0.15)*Math.PI*2));
+        baseR *= 1 + 0.65 * wave;
 
-            const points = new THREE.Points(geo, mat);
-            starGroup.add(points);
+        const angle = u * LOOPS * Math.PI * 2;
+        const r = baseR * (0.85 + Math.random()*0.23);
 
-            // 2. 顶部微型星光爱心
-            const hGeo = new THREE.BufferGeometry();
-            const hCount = 3000;
-            const hPos = new Float32Array(hCount * 3);
-            for(let i=0; i<hCount; i++) {
-                const s = (i / hCount) * Math.PI * 2;
-                const x = 16 * Math.pow(Math.sin(s), 3);
-                const y = 13 * Math.cos(s) - 5 * Math.cos(2*s) - 2 * Math.cos(3*s) - Math.cos(4*s);
-                const sc = 0.045;
-                hPos[i*3] = x * sc + (Math.random()-0.5)*0.2;
-                hPos[i*3+1] = y * sc + 4.6; 
-                hPos[i*3+2] = (Math.random()-0.5)*0.3;
-            }
-            hGeo.setAttribute('position', new THREE.BufferAttribute(hPos, 3));
-            const hPoints = new THREE.Points(hGeo, new THREE.PointsMaterial({
-                color: 0xffc0cb, size: 0.03, transparent: true, opacity: 0.8, blending: THREE.AdditiveBlending
-            }));
-            starGroup.add(hPoints);
+        const x = Math.cos(angle) * r;
+        const z = Math.sin(angle) * r;
 
-            animate();
+        pos[i*3]   = x;
+        pos[i*3+1] = y;
+        pos[i*3+2] = z;
+
+        let mid = Math.max(0.15, 1 - Math.abs(h-0.55)*1.5);
+        col[i*3]   = 1.0;
+        col[i*3+1] = (155 + 90*mid)/255;
+        col[i*3+2] = (185 + 70*mid)/255;
+
+        i++;
+    }
+
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute('position', new THREE.BufferAttribute(pos,3));
+    geo.setAttribute('color', new THREE.BufferAttribute(col,3));
+
+    const mat = new THREE.PointsMaterial({
+        size: isMobile ? 0.045 : 0.04,
+        vertexColors:true,
+        transparent:true,
+        blending:THREE.AdditiveBlending,
+        depthWrite:false
+    });
+
+    group.add(new THREE.Points(geo,mat));
+}
+
+/* ================= tree.py → 树顶爱心 ================= */
+function genHeart(){
+    const pos = [];
+    const col = [];
+
+    while(pos.length/3 < HEART_POINTS){
+        const x = THREE.MathUtils.randFloat(-1.3,1.3);
+        const y = THREE.MathUtils.randFloat(-1.4,1.4);
+
+        const f = Math.pow(x*x+y*y-1,3) - x*x*y*y*y;
+        if(f<=0){
+            const wx = x*0.7;
+            const wy = TREE_HEIGHT + (y+1)*0.5;
+            const wz = THREE.MathUtils.randFloat(-0.18,0.18);
+
+            pos.push(wx,wy,wz);
+
+            const d = Math.hypot(x,y);
+            const k = Math.max(0.35,1.15-0.5*d);
+            col.push(
+                1.0,
+                (130*k+80)/255,
+                (190*k+70)/255
+            );
         }
+    }
 
-        function animate() {
-            requestAnimationFrame(animate);
-            // 缓慢旋转
-            starGroup.rotation.y += 0.003;
-            // 模拟“星星眨眼”的动态呼吸
-            starGroup.children.forEach(p => {
-                p.material.opacity = 0.3 + Math.abs(Math.sin(Date.now() * 0.001)) * 0.3;
-            });
-            renderer.render(scene, camera);
-        }
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute('position', new THREE.Float32BufferAttribute(pos,3));
+    geo.setAttribute('color', new THREE.Float32BufferAttribute(col,3));
 
-        window.addEventListener('touchstart', () => { document.getElementById('bgm').play(); }, {once: true});
-        window.addEventListener('resize', () => {
-            camera.aspect = window.innerWidth / window.innerHeight;
-            camera.updateProjectionMatrix();
-            renderer.setSize(window.innerWidth, window.innerHeight);
-        });
-        init();
-    </script>
+    const mat = new THREE.PointsMaterial({
+        size: isMobile ? 0.06 : 0.05,
+        vertexColors:true,
+        transparent:true,
+        blending:THREE.AdditiveBlending,
+        depthWrite:false
+    });
+
+    const heart = new THREE.Points(geo,mat);
+    group.add(heart);
+}
+
+/* ================= 启动 & 动画 ================= */
+genTree();
+genHeart();
+
+let started = false;
+function animate(){
+    requestAnimationFrame(animate);
+    if(started){
+        group.rotation.y += 0.0045;
+        const s = 1 + Math.sin(Date.now()*0.004)*0.04;
+        group.children[1].scale.set(s,s,s);
+    }
+    renderer.render(scene,camera);
+}
+animate();
+
+/* ================= 交互 ================= */
+document.getElementById('start-overlay').onclick = ()=>{
+    started = true;
+    document.getElementById('bgm').play();
+    document.getElementById('start-overlay').style.display='none';
+};
+
+window.onresize = ()=>{
+    camera.aspect = window.innerWidth/window.innerHeight;
+    camera.updateProjectionMatrix();
+    renderer.setSize(window.innerWidth,window.innerHeight);
+};
+</script>
 </body>
 </html>
