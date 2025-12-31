@@ -14,50 +14,49 @@
         }
         #start-text { color: #ffb6c1; font-size: 16px; letter-spacing: 4px; animation: breathe 2s infinite; }
         
-        /* 动态照片墙 */
+        /* 动态照片墙 - 透明度调至 0.1 */
         #photo-wall { position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 1; opacity: 0; transition: opacity 2s; }
         .bg-photo {
             position: absolute; width: 120px; height: 160px;
             background-size: cover; background-position: center;
-            border: 1px solid rgba(255,255,255,0.15); border-radius: 4px;
-            opacity: 0; filter: brightness(0.4); /* 降低亮度 */
+            border: 1px solid rgba(255,255,255,0.1); border-radius: 4px;
+            opacity: 0; filter: brightness(0.3); 
             animation: photoFlow 14s infinite ease-in-out;
         }
 
+        /* 文字公用样式 */
+        .text-layer { position: absolute; z-index: 100; pointer-events: none; width: 100%; text-align: center; }
+
         /* 初始文字 */
-        #intro-text {
-            position: absolute; left: 10%; top: 45%; color: white;
-            z-index: 100; pointer-events: none; opacity: 0; transition: opacity 2s;
-            text-shadow: 0 0 15px #ff1493;
-        }
+        #intro-text { top: 45%; opacity: 0; transition: opacity 1.5s; color: white; text-shadow: 0 0 15px #ff1493; }
         .line1 { font-size: 32px; font-weight: bold; margin-bottom: 8px; }
         .line2 { font-size: 16px; opacity: 0.8; }
 
         /* 祝愿语容器 */
         #wishes-container {
-            position: absolute; left: 5%; top: 10%; width: 90%; height: 80%;
+            position: absolute; left: 0; top: 0; width: 100%; height: 100%;
             z-index: 150; pointer-events: none; transition: opacity 2s;
         }
         .wish-item {
             position: absolute; color: #fff; font-size: 19px;
-            opacity: 0; transition: all 2s ease-out;
+            opacity: 0; transition: all 1.5s ease-out;
             text-shadow: 0 0 8px #ff69b4;
             white-space: nowrap; font-weight: 300;
         }
 
-        /* 结局文字样式 */
+        /* 结局大字样式 */
         .final-message {
             position: absolute; width: 100%; top: 45%; text-align: center;
             color: #fff; font-weight: bold; opacity: 0;
-            z-index: 500; transition: opacity 2s; pointer-events: none;
+            z-index: 500; transition: opacity 2s ease-in-out; pointer-events: none;
         }
-        #phrase-1 { font-size: 28px; letter-spacing: 3px; text-shadow: 0 0 15px #ffb6c1; }
-        #phrase-2 { font-size: 48px; letter-spacing: 5px; text-shadow: 0 0 25px #ff1493; }
+        #phrase-1 { font-size: 26px; letter-spacing: 2px; text-shadow: 0 0 15px #ffb6c1; }
+        #phrase-2 { font-size: 46px; letter-spacing: 4px; text-shadow: 0 0 25px #ff1493; }
 
         @keyframes breathe { 0%, 100% { opacity: 0.4; transform: scale(0.98); } 50% { opacity: 1; transform: scale(1.02); } }
         @keyframes photoFlow {
             0%, 100% { opacity: 0; transform: translateY(20px) rotate(-1deg); }
-            30%, 70% { opacity: 0.4; transform: translateY(0) rotate(0deg); } /* 这里降低了透明度到0.4 */
+            30%, 70% { opacity: 0.1; transform: translateY(0) rotate(0deg); } /* 严格 0.1 透明度 */
         }
         .pulse { animation: breathe 3s infinite; }
     </style>
@@ -68,7 +67,7 @@
     
     <div id="photo-wall"></div>
     
-    <div id="intro-text">
+    <div id="intro-text" class="text-layer">
         <div class="line1">2026快乐！</div>
         <div class="line2">希望我的楠楠天天快乐！</div>
     </div>
@@ -81,7 +80,6 @@
     <audio id="bgm" loop><source src="music.mp3" type="audio/mpeg"></audio>
 
     <script>
-        // 祝愿列表
         const wishList = [
             "我们要一直坚持下去 💪",
             "一起努力一起开心！",
@@ -92,17 +90,16 @@
             "我会永远陪着宝宝滴 ！"
         ];
 
-        // 1. 初始化照片墙 - 增加到 15 张
+        // 1. 初始化照片墙 (15张)
         const wall = document.getElementById('photo-wall');
         for(let i=1; i<=15; i++) {
             const d = document.createElement('div');
             d.className = 'bg-photo';
-            // 如果你只有8张图，这里用取余逻辑循环使用图源，或者你有photo1-15.jpg
             const imgSrc = (i > 8) ? (i % 8 + 1) : i; 
             d.style.backgroundImage = `url('photo${imgSrc}.jpg')`;
             d.style.left = (Math.random() * 70 + 5) + '%';
             d.style.top = (Math.random() * 70 + 5) + '%';
-            d.style.animationDelay = (i * 1.2) + 's';
+            d.style.animationDelay = (i * 1.1) + 's';
             wall.appendChild(d);
         }
 
@@ -111,57 +108,63 @@
             this.style.opacity = '0';
             setTimeout(() => this.style.display = 'none', 1000);
             document.getElementById('bgm').play();
+            
+            // 步骤1：显示照片墙和开场白
             wall.style.opacity = '1';
             const intro = document.getElementById('intro-text');
             intro.style.opacity = '1';
 
-            // 5秒后开场白消失
+            // 步骤2：5秒后开场白消失，进入祝愿语阶段
             setTimeout(() => {
                 intro.style.opacity = '0';
-                showWishes();
+                setTimeout(showWishes, 1500);
             }, 5000);
         });
 
-        // 3. 祝愿展示
+        // 3. 祝愿展示 (严格串行)
         function showWishes() {
             const container = document.getElementById('wishes-container');
+            let delay = 0;
+
             wishList.forEach((text, i) => {
                 setTimeout(() => {
                     const item = document.createElement('div');
                     item.className = 'wish-item';
                     item.innerText = text;
                     item.style.top = (15 + i * 9) + '%'; 
-                    item.style.left = (12 + Math.random() * 10) + '%';
+                    item.style.left = (15 + Math.random() * 5) + '%';
                     container.appendChild(item);
                     
+                    // 文字滑入
                     setTimeout(() => {
                         item.style.opacity = '1';
                         item.style.transform = 'translateX(20px)';
                     }, 100);
 
-                    // 播完所有祝愿语后的流程
+                    // 如果是最后一句，等待后进入结局逻辑
                     if(i === wishList.length - 1) {
-                        setTimeout(startEndingSequence, 6000);
+                        setTimeout(startEndingSequence, 4000);
                     }
-                }, i * 2000);
+                }, i * 2000); // 每2秒出一句
             });
         }
 
-        // 4. 结尾序列逻辑
+        // 4. 结尾逻辑：背景消失 -> 句子1 -> 消失 -> 我爱你
         function startEndingSequence() {
-            // 祝愿词消失
+            // A. 背景和祝愿语同时开始淡出
             document.getElementById('wishes-container').style.opacity = '0';
+            document.getElementById('photo-wall').style.opacity = '0';
             
+            // B. 确保完全清空后的 2秒，浮现第一句话
             setTimeout(() => {
-                // 显示“年年景不改，岁岁人常在！”
                 const p1 = document.getElementById('phrase-1');
                 p1.style.opacity = '1';
                 
-                // 停留 4秒
+                // C. 第一句话显示 4秒
                 setTimeout(() => {
                     p1.style.opacity = '0';
                     
-                    // 最后大字淡入
+                    // D. 第一句消失后，浮现最后的“我爱你楠楠”
                     setTimeout(() => {
                         const p2 = document.getElementById('phrase-2');
                         p2.style.opacity = '1';
